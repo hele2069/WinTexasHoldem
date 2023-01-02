@@ -14,6 +14,9 @@ $ git clone https://github.com/hele2069/WinTexasHoldem
 # Go into the repository
 $ cd WinTexasHoldem
 
+# Activate Virtual Environment (if needed)
+$ conda activate myenv
+
 # Run the code
 $ python run.py
 ```
