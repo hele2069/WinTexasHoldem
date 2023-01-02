@@ -2,26 +2,7 @@ from player import Player
 import random 
 from card import Card
 from game import TexasHoldem
-
-def summary(game: TexasHoldem) -> None:
-    # print(self.deck)
-    print('---------- BOARD ----------\n')
-    print([str(i) for i in game.board])
-    print('\n')
-
-    for i in game.players:   
-        print('----- {} ----- \n'.format(i.name.upper()))
-        print([str(i.hand1), str(i.hand2)])
-        print('Win Rate: '+str(i.win_rate)+'\n')
-
-def value_greater(card1: Card, card2: Card) -> bool: 
-    val = ['2','3','4','5','6','7','8','9','10','J','Q','K','A']
-    if val.index(card1.val) > val.index(card2.val):
-        return True 
-    elif val.index(card1.val) == val.index(card2.val):
-        return None 
-    else: 
-        return False 
+from copy import deepcopy
 
 # combines board and player hand 
 def generate_hand(game: TexasHoldem, player: Player):
@@ -124,11 +105,15 @@ def detect_flush(game: TexasHoldem, player: Player) -> list:
     hand = [None, None, None, None, None]
     found = False 
     temp = generate_hand(game, player)
-    temp.sort(key=lambda x:(x.suit,to_number(x)), reverse=True)
-    for i in range(3): 
-        if i + 4 < len(temp) and temp[i].suit == temp[i+4].suit:
-            hand = temp[i:i+5]
-            found = True 
+    suit_dict = {'h':[], 's':[], 'd':[], 'c':[]} 
+    for card in temp:
+        suit_dict[card.suit].append(card)
+    for value in suit_dict.values():
+        if len(value) >= 5:     
+            value = list(value)
+            value.sort(key=to_number, reverse=True)
+            found = True
+            hand = value[0:5]
             break
     return found, hand  
 
@@ -191,7 +176,7 @@ def detect_straight_flush(game: TexasHoldem, player: Player) -> list:
                     hand = flush[i:i+5]
                     found = True 
                     break 
-            break 
+            break
     return found, hand  
 
 def detect_royal_flush(game: TexasHoldem, player: Player) -> list: 
@@ -213,5 +198,122 @@ def detect_royal_flush(game: TexasHoldem, player: Player) -> list:
             break 
     return found, hand 
 
-def win(player1, player2) -> Player: 
-    return 
+def win(game: TexasHoldem): 
+    for player in game.players: 
+        if detect_high_card(game, player)[0]:
+            player.best_hand = detect_high_card(game, player)[1]
+            player.draw_stats['high_card'] += 1
+            player.best_hand_score = 1
+        if detect_pair(game, player)[0]:
+            player.best_hand = detect_pair(game, player)[1]
+            player.draw_stats['pair'] += 1
+            player.best_hand_score = 2
+        if detect_two_pair(game, player)[0]:
+            player.best_hand = detect_two_pair(game, player)[1]
+            player.draw_stats['two_pair'] += 1
+            player.best_hand_score = 3
+        if detect_three_of_a_kind(game, player)[0]:
+            player.best_hand = detect_three_of_a_kind(game, player)[1]
+            player.draw_stats['three_of_a_kind'] += 1
+            player.best_hand_score = 4
+        if detect_straight(game, player)[0]:
+            player.best_hand = detect_straight(game, player)[1]
+            player.draw_stats['straight'] += 1
+            player.best_hand_score = 5
+        if detect_flush(game, player)[0]:
+            player.best_hand = detect_flush(game, player)[1]
+            player.draw_stats['flush'] += 1
+            player.best_hand_score = 6
+        if detect_full_house(game, player)[0]:
+            player.best_hand = detect_full_house(game, player)[1]
+            player.draw_stats['full_house'] += 1
+            player.best_hand_score = 7
+        if detect_four_of_a_kind(game, player)[0]:
+            player.best_hand = detect_four_of_a_kind(game, player)[1]
+            player.draw_stats['four_of_a_kind'] += 1
+            player.best_hand_score = 8
+        if detect_straight_flush(game, player)[0]:
+            player.best_hand = detect_straight_flush(game, player)[1]
+            player.draw_stats['straight_flush'] += 1
+            player.best_hand_score = 9
+        if detect_royal_flush(game, player)[0]:
+            player.best_hand = detect_royal_flush(game, player)[1]
+            player.draw_stats['royal_flush'] += 1
+            player.best_hand_score = 10 
+    hand_assembly = {}
+    for player in game.players: 
+        if player.best_hand_score not in hand_assembly.keys():
+            hand_assembly[player.best_hand_score] = [player]
+        else:
+            hand_assembly[player.best_hand_score].append(player)
+
+    hand_type = max(list(hand_assembly.keys()))
+    player_assembly = hand_assembly[hand_type]
+    hand_dict = {1:'high_card',2:'pair',3:'two_pair',4:'three_of_a_kind',5:'straight',6:'flush',
+                 7:'full_house',8:'four_of_a_kind',9:'straight_flush',10:'royal_flush'}
+    # no tie 
+    if len(player_assembly) == 1:
+        player_assembly[0].win_stats[hand_dict[hand_type]] += 1
+        player_assembly[0].wins += 1
+        return game.players, player_assembly
+    # tie 
+    else: 
+        if hand_type == 1: 
+            player_assembly = tie_breaker(player_assembly, 0, 5)
+        elif hand_type == 2: 
+            player_assembly = tie_breaker(player_assembly, 0, 1)
+            if len(player_assembly) != 1:
+                player_assembly = tie_breaker(player_assembly, 2, 5)
+        elif hand_type == 3: 
+            player_assembly = tie_breaker(player_assembly, 0, 1)
+            if len(player_assembly) != 1:
+                player_assembly = tie_breaker(player_assembly, 2, 3)
+                if len(player_assembly) != 1:
+                    player_assembly = tie_breaker(player_assembly, 4, 5)
+        elif hand_type == 4:
+            player_assembly = tie_breaker(player_assembly, 0, 1)
+            if len(player_assembly) != 1:
+                player_assembly = tie_breaker(player_assembly, 3, 5)
+        elif hand_type == 5:
+            player_assembly = tie_breaker(player_assembly, 0, 1)
+        elif hand_type == 6:
+            player_assembly = tie_breaker(player_assembly, 0, 5)
+        elif hand_type == 7:
+            player_assembly = tie_breaker(player_assembly, 0, 1)
+            if len(player_assembly) != 1:
+                player_assembly = tie_breaker(player_assembly, 3, 4)
+        elif hand_type == 8:
+            player_assembly = tie_breaker(player_assembly, 0, 1)
+            if len(player_assembly) != 1:
+                player_assembly = tie_breaker(player_assembly, 4, 5)
+        elif hand_type == 9:
+            player_assembly = tie_breaker(player_assembly, 0, 1)
+        elif hand_type == 10:
+            player_assembly = player_assembly
+        # all ties 
+        if len(player_assembly) == len(game.players):
+            for player in player_assembly:
+                player.ties += 1
+        # some ties (split pot)
+        else: 
+            for player in player_assembly:
+                player.win_stats[hand_dict[hand_type]] += 1
+                player.wins += 1
+        return game.players, player_assembly
+
+def tie_breaker(player_assembly: list, start: int, end: int):
+    for i in range(start, end):
+        compare = [to_number(hand.best_hand[i]) for hand in player_assembly]
+        highest_kicker = max(compare)
+        if compare.count(highest_kicker) == 1: 
+            return [player_assembly[compare.index(highest_kicker)]]
+        else:
+            index = 0 
+            while index < len(compare):
+                card = compare[index]
+                if card != highest_kicker:
+                    compare.pop(index)
+                    player_assembly.pop(index)
+                else: 
+                    index += 1
+            return player_assembly

@@ -10,9 +10,10 @@ class TexasHoldem:
         self.state = None 
 
         # init players 
-        for i in range(1, player_count+1):
-            player = Player(name='player '+str(i))
-            self.players.append(player)
+        if not players: 
+            for i in range(1, player_count+1):
+                player = Player(name='player '+str(i))
+                self.players.append(player)
 
         # generate deck 
         deck = []
